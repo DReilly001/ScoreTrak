@@ -16,6 +16,9 @@ type Match = {
   home_points?: number
   away_goals?: number
   away_points?: number
+  home_penalties?: number
+  away_penalties?: number
+  result_type?: string
   minute?: number
 }
 
@@ -36,9 +39,18 @@ const STATUSES = [
   'SCHEDULED',
   'LIVE',
   'HT',
+  'ET',
+  'ET_HT',
+  'PENALTIES',
   'FT',
   'POSTPONED',
   'CANCELLED',
+]
+
+const RESULT_TYPES = [
+  'NORMAL',
+  'AET',
+  'PENALTIES',
 ]
 
 export default function Admin() {
@@ -90,12 +102,16 @@ export default function Admin() {
     homePoints: 0,
     awayGoals: 0,
     awayPoints: 0,
+    homePenalties: 0,
+    awayPenalties: 0,
     status: 'SCHEDULED',
+    resultType: 'NORMAL',
     minute: 0,
   })
 
   async function checkAdmin() {
-    const { data, error } = await supabase.rpc('is_admin')
+    const { data, error } =
+      await supabase.rpc('is_admin')
 
     return !error && !!data
   }
@@ -293,15 +309,18 @@ export default function Admin() {
         p_match_id: matchId,
         p_competition:
           editForm.competition,
-        p_home_team: editForm.home,
-        p_away_team: editForm.away,
+        p_home_team:
+          editForm.home,
+        p_away_team:
+          editForm.away,
         p_venue:
           editForm.venue || null,
-        p_start_time: editForm.start
-          ? new Date(
-              editForm.start
-            ).toISOString()
-          : null,
+        p_start_time:
+          editForm.start
+            ? new Date(
+                editForm.start
+              ).toISOString()
+            : null,
       }
     )
 
@@ -384,41 +403,61 @@ export default function Admin() {
     matchId: string,
     status: string
   ) {
-    const previousStatus =
-      matches.find(
-        (match) => match.id === matchId
-      )?.status
+    const match = matches.find(
+      (m) => m.id === matchId
+    )
+
+    if (!match) {
+      setMessage('Match not found.')
+      return
+    }
+
+    const previousStatus = match.status
 
     setMatches((current) =>
-      current.map((match) =>
-        match.id === matchId
+      current.map((m) =>
+        m.id === matchId
           ? {
-              ...match,
+              ...m,
               status,
             }
-          : match
+          : m
       )
     )
 
     const { error } = await supabase.rpc(
-      'set_match_status',
+      'admin_correct_match',
       {
         p_match_id: matchId,
+        p_home_goals:
+          match.home_goals ?? 0,
+        p_home_points:
+          match.home_points ?? 0,
+        p_away_goals:
+          match.away_goals ?? 0,
+        p_away_points:
+          match.away_points ?? 0,
+        p_home_penalties:
+          match.home_penalties ?? 0,
+        p_away_penalties:
+          match.away_penalties ?? 0,
         p_status: status,
+        p_result_type:
+          match.result_type ?? 'NORMAL',
+        p_minute:
+          match.minute ?? 0,
       }
     )
 
     if (error) {
       setMatches((current) =>
-        current.map((match) =>
-          match.id === matchId
+        current.map((m) =>
+          m.id === matchId
             ? {
-                ...match,
-                status:
-                  previousStatus ??
-                  match.status,
+                ...m,
+                status: previousStatus,
               }
-            : match
+            : m
         )
       )
 
@@ -450,8 +489,14 @@ export default function Admin() {
         match.away_goals ?? 0,
       awayPoints:
         match.away_points ?? 0,
+      homePenalties:
+        match.home_penalties ?? 0,
+      awayPenalties:
+        match.away_penalties ?? 0,
       status:
         match.status || 'SCHEDULED',
+      resultType:
+        match.result_type || 'NORMAL',
       minute:
         match.minute ?? 0,
     })
@@ -465,6 +510,8 @@ export default function Admin() {
       scoreForm.homePoints,
       scoreForm.awayGoals,
       scoreForm.awayPoints,
+      scoreForm.homePenalties,
+      scoreForm.awayPenalties,
       scoreForm.minute,
     ]
 
@@ -476,14 +523,14 @@ export default function Admin() {
       )
     ) {
       setMessage(
-        'Scores and match minute cannot be negative.'
+        'Scores, penalties and match minute cannot be negative.'
       )
 
       return
     }
 
     const { error } = await supabase.rpc(
-      'admin_correct_score',
+      'admin_correct_match',
       {
         p_match_id: matchId,
         p_home_goals:
@@ -494,8 +541,14 @@ export default function Admin() {
           scoreForm.awayGoals,
         p_away_points:
           scoreForm.awayPoints,
+        p_home_penalties:
+          scoreForm.homePenalties,
+        p_away_penalties:
+          scoreForm.awayPenalties,
         p_status:
           scoreForm.status,
+        p_result_type:
+          scoreForm.resultType,
         p_minute:
           scoreForm.minute,
       }
@@ -509,7 +562,7 @@ export default function Admin() {
     setScoreMatchId(null)
 
     setMessage(
-      'Score and match details corrected.'
+      'Match score and details corrected.'
     )
 
     await load()
@@ -581,8 +634,30 @@ export default function Admin() {
     ).format(new Date(value))
   }
 
+  function resultLabel(match: Match) {
+    if (
+      match.result_type === 'AET'
+    ) {
+      return 'AET'
+    }
+
+    if (
+      match.result_type === 'PENALTIES'
+    ) {
+      return 'PEN'
+    }
+
+    return ''
+  }
+
   const live = matches.filter((x) =>
-    ['LIVE', 'HT'].includes(x.status)
+    [
+      'LIVE',
+      'HT',
+      'ET',
+      'ET_HT',
+      'PENALTIES',
+    ].includes(x.status)
   ).length
 
   const upcoming = matches.filter(
@@ -618,9 +693,13 @@ export default function Admin() {
       }
 
       if (filter === 'LIVE') {
-        return ['LIVE', 'HT'].includes(
-          match.status
-        )
+        return [
+          'LIVE',
+          'HT',
+          'ET',
+          'ET_HT',
+          'PENALTIES',
+        ].includes(match.status)
       }
 
       if (filter === 'UPCOMING') {
@@ -772,7 +851,9 @@ export default function Admin() {
       {message && (
         <div
           className="notice"
-          style={{ marginTop: 16 }}
+          style={{
+            marginTop: 16,
+          }}
         >
           {message}
         </div>
@@ -969,7 +1050,9 @@ export default function Admin() {
 
           <div
             className="field"
-            style={{ marginTop: 16 }}
+            style={{
+              marginTop: 16,
+            }}
           >
             <label>Search</label>
 
@@ -1051,8 +1134,7 @@ export default function Admin() {
                     justifyContent:
                       'space-between',
                     gap: 12,
-                    alignItems:
-                      'start',
+                    alignItems: 'start',
                   }}
                 >
                   <div>
@@ -1066,9 +1148,7 @@ export default function Admin() {
                     </strong>
 
                     <div className="muted">
-                      {
-                        match.competition
-                      }
+                      {match.competition}
                     </div>
 
                     <div className="muted">
@@ -1086,6 +1166,11 @@ export default function Admin() {
 
                   <strong>
                     {match.status}
+                    {resultLabel(match)
+                      ? ` • ${resultLabel(
+                          match
+                        )}`
+                      : ''}
                   </strong>
                 </div>
 
@@ -1108,6 +1193,23 @@ export default function Admin() {
                     'number' &&
                     ` • ${match.minute}'`}
                 </div>
+
+                {match.result_type ===
+                  'PENALTIES' && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 14,
+                    }}
+                  >
+                    Penalties:{' '}
+                    {match.home_penalties ??
+                      0}
+                    -
+                    {match.away_penalties ??
+                      0}
+                  </div>
+                )}
 
                 <div
                   style={{
@@ -1445,7 +1547,7 @@ export default function Admin() {
                     }}
                   >
                     <h3>
-                      Correct Score
+                      Correct Match
                     </h3>
 
                     <div
@@ -1547,6 +1649,52 @@ export default function Admin() {
                           }
                         />
                       </div>
+
+                      <div className="field">
+                        <label>
+                          Home penalties
+                        </label>
+
+                        <input
+                          type="number"
+                          min="0"
+                          value={
+                            scoreForm.homePenalties
+                          }
+                          onChange={(e) =>
+                            setScoreForm({
+                              ...scoreForm,
+                              homePenalties:
+                                Number(
+                                  e.target.value
+                                ),
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="field">
+                        <label>
+                          Away penalties
+                        </label>
+
+                        <input
+                          type="number"
+                          min="0"
+                          value={
+                            scoreForm.awayPenalties
+                          }
+                          onChange={(e) =>
+                            setScoreForm({
+                              ...scoreForm,
+                              awayPenalties:
+                                Number(
+                                  e.target.value
+                                ),
+                            })
+                          }
+                        />
+                      </div>
                     </div>
 
                     <div className="field">
@@ -1574,7 +1722,7 @@ export default function Admin() {
 
                     <div className="field">
                       <label>
-                        Status
+                        Match status
                       </label>
 
                       <select
@@ -1596,6 +1744,36 @@ export default function Admin() {
                               value={status}
                             >
                               {status}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="field">
+                      <label>
+                        Result type
+                      </label>
+
+                      <select
+                        value={
+                          scoreForm.resultType
+                        }
+                        onChange={(e) =>
+                          setScoreForm({
+                            ...scoreForm,
+                            resultType:
+                              e.target.value,
+                          })
+                        }
+                      >
+                        {RESULT_TYPES.map(
+                          (type) => (
+                            <option
+                              key={type}
+                              value={type}
+                            >
+                              {type}
                             </option>
                           )
                         )}
