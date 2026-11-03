@@ -45,6 +45,7 @@ export default function Admin() {
   const supabase = useMemo(() => createClient(), [])
 
   const [session, setSession] = useState<any>(null)
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -95,6 +96,7 @@ export default function Admin() {
 
   async function checkAdmin() {
     const { data, error } = await supabase.rpc('is_admin')
+
     return !error && !!data
   }
 
@@ -140,7 +142,9 @@ export default function Admin() {
   }, [supabase])
 
   useEffect(() => {
-    if (session) load()
+    if (session) {
+      load()
+    }
   }, [session])
 
   async function login() {
@@ -159,9 +163,11 @@ export default function Admin() {
 
     if (!(await checkAdmin())) {
       await supabase.auth.signOut()
+
       setMessage(
         'This account is not an admin.'
       )
+
       return
     }
 
@@ -224,6 +230,7 @@ export default function Admin() {
         setMessage(
           `Fixture created, but reporter assignment failed: ${assignment.error.message}`
         )
+
         await load()
         return
       }
@@ -304,6 +311,7 @@ export default function Admin() {
     }
 
     setEditMatchId(null)
+
     setMessage(
       'Fixture updated successfully.'
     )
@@ -351,7 +359,9 @@ export default function Admin() {
       'Remove the reporter from this fixture?'
     )
 
-    if (!ok) return
+    if (!ok) {
+      return
+    }
 
     const { error } = await supabase.rpc(
       'admin_clear_reporter',
@@ -366,6 +376,7 @@ export default function Admin() {
     }
 
     setMessage('Reporter removed.')
+
     await load()
   }
 
@@ -373,6 +384,22 @@ export default function Admin() {
     matchId: string,
     status: string
   ) {
+    const previousStatus =
+      matches.find(
+        (match) => match.id === matchId
+      )?.status
+
+    setMatches((current) =>
+      current.map((match) =>
+        match.id === matchId
+          ? {
+              ...match,
+              status,
+            }
+          : match
+      )
+    )
+
     const { error } = await supabase.rpc(
       'set_match_status',
       {
@@ -382,7 +409,23 @@ export default function Admin() {
     )
 
     if (error) {
-      setMessage(error.message)
+      setMatches((current) =>
+        current.map((match) =>
+          match.id === matchId
+            ? {
+                ...match,
+                status:
+                  previousStatus ??
+                  match.status,
+              }
+            : match
+        )
+      )
+
+      setMessage(
+        `Could not change status: ${error.message}`
+      )
+
       return
     }
 
@@ -435,6 +478,7 @@ export default function Admin() {
       setMessage(
         'Scores and match minute cannot be negative.'
       )
+
       return
     }
 
@@ -478,7 +522,9 @@ export default function Admin() {
       `Delete ${match.home_team} v ${match.away_team}?\n\nThis cannot be undone.`
     )
 
-    if (!ok) return
+    if (!ok) {
+      return
+    }
 
     const { error } = await supabase.rpc(
       'admin_delete_match',
@@ -493,13 +539,16 @@ export default function Admin() {
     }
 
     setMessage('Fixture deleted.')
+
     await load()
   }
 
   function toLocalDateTime(
     value?: string | null
   ) {
-    if (!value) return ''
+    if (!value) {
+      return ''
+    }
 
     const d = new Date(value)
 
@@ -516,7 +565,9 @@ export default function Admin() {
   function formatDate(
     value?: string | null
   ) {
-    if (!value) return 'Date not set'
+    if (!value) {
+      return 'Date not set'
+    }
 
     return new Intl.DateTimeFormat(
       'en-IE',
@@ -646,8 +697,9 @@ export default function Admin() {
               }
               autoComplete="current-password"
               onKeyDown={(e) => {
-                if (e.key === 'Enter')
+                if (e.key === 'Enter') {
                   login()
+                }
               }}
             />
           </div>
@@ -980,8 +1032,7 @@ export default function Admin() {
           {filteredMatches.length ===
             0 && (
             <div className="muted">
-              No fixtures in this
-              view.
+              No fixtures in this view.
             </div>
           )}
 
@@ -1045,17 +1096,14 @@ export default function Admin() {
                   }}
                 >
                   Score:{' '}
-                  {match.home_goals ??
-                    0}
+                  {match.home_goals ?? 0}
                   -
-                  {match.home_points ??
-                    0}{' '}
-                  :{' '}
-                  {match.away_goals ??
-                    0}
+                  {match.home_points ?? 0}
+                  {' : '}
+                  {match.away_goals ?? 0}
                   -
-                  {match.away_points ??
-                    0}
+                  {match.away_points ?? 0}
+
                   {typeof match.minute ===
                     'number' &&
                     ` • ${match.minute}'`}
@@ -1185,8 +1233,7 @@ export default function Admin() {
                         value={assignEmail}
                         onChange={(e) =>
                           setAssignEmail(
-                            e.target
-                              .value
+                            e.target.value
                           )
                         }
                         placeholder="reporter@email.com"
@@ -1216,9 +1263,7 @@ export default function Admin() {
                           setAssignMatchId(
                             null
                           )
-                          setAssignEmail(
-                            ''
-                          )
+                          setAssignEmail('')
                         }}
                       >
                         Cancel
@@ -1237,9 +1282,7 @@ export default function Admin() {
                         '1px solid #ddd',
                     }}
                   >
-                    <h3>
-                      Edit Fixture
-                    </h3>
+                    <h3>Edit Fixture</h3>
 
                     <div className="field">
                       <label>
@@ -1254,24 +1297,17 @@ export default function Admin() {
                           setEditForm({
                             ...editForm,
                             competition:
-                              e.target
-                                .value,
+                              e.target.value,
                           })
                         }
                       >
                         {comps.map(
                           (x) => (
                             <option
-                              key={
-                                x.id
-                              }
-                              value={
-                                x.name
-                              }
+                              key={x.id}
+                              value={x.name}
                             >
-                              {
-                                x.name
-                              }
+                              {x.name}
                             </option>
                           )
                         )}
@@ -1284,31 +1320,22 @@ export default function Admin() {
                       </label>
 
                       <select
-                        value={
-                          editForm.home
-                        }
+                        value={editForm.home}
                         onChange={(e) =>
                           setEditForm({
                             ...editForm,
-                            home: e
-                              .target
-                              .value,
+                            home:
+                              e.target.value,
                           })
                         }
                       >
                         {clubs.map(
                           (x) => (
                             <option
-                              key={
-                                x.id
-                              }
-                              value={
-                                x.name
-                              }
+                              key={x.id}
+                              value={x.name}
                             >
-                              {
-                                x.name
-                              }
+                              {x.name}
                             </option>
                           )
                         )}
@@ -1321,31 +1348,22 @@ export default function Admin() {
                       </label>
 
                       <select
-                        value={
-                          editForm.away
-                        }
+                        value={editForm.away}
                         onChange={(e) =>
                           setEditForm({
                             ...editForm,
-                            away: e
-                              .target
-                              .value,
+                            away:
+                              e.target.value,
                           })
                         }
                       >
                         {clubs.map(
                           (x) => (
                             <option
-                              key={
-                                x.id
-                              }
-                              value={
-                                x.name
-                              }
+                              key={x.id}
+                              value={x.name}
                             >
-                              {
-                                x.name
-                              }
+                              {x.name}
                             </option>
                           )
                         )}
@@ -1358,15 +1376,12 @@ export default function Admin() {
                       </label>
 
                       <input
-                        value={
-                          editForm.venue
-                        }
+                        value={editForm.venue}
                         onChange={(e) =>
                           setEditForm({
                             ...editForm,
-                            venue: e
-                              .target
-                              .value,
+                            venue:
+                              e.target.value,
                           })
                         }
                       />
@@ -1379,15 +1394,12 @@ export default function Admin() {
 
                       <input
                         type="datetime-local"
-                        value={
-                          editForm.start
-                        }
+                        value={editForm.start}
                         onChange={(e) =>
                           setEditForm({
                             ...editForm,
-                            start: e
-                              .target
-                              .value,
+                            start:
+                              e.target.value,
                           })
                         }
                       />
@@ -1402,9 +1414,7 @@ export default function Admin() {
                       <button
                         className="btn primary"
                         onClick={() =>
-                          saveEdit(
-                            match.id
-                          )
+                          saveEdit(match.id)
                         }
                       >
                         Save Changes
@@ -1440,8 +1450,7 @@ export default function Admin() {
 
                     <div
                       style={{
-                        display:
-                          'grid',
+                        display: 'grid',
                         gridTemplateColumns:
                           '1fr 1fr',
                         gap: 10,
@@ -1458,20 +1467,14 @@ export default function Admin() {
                           value={
                             scoreForm.homeGoals
                           }
-                          onChange={(
-                            e
-                          ) =>
-                            setScoreForm(
-                              {
-                                ...scoreForm,
-                                homeGoals:
-                                  Number(
-                                    e
-                                      .target
-                                      .value
-                                  ),
-                              }
-                            )
+                          onChange={(e) =>
+                            setScoreForm({
+                              ...scoreForm,
+                              homeGoals:
+                                Number(
+                                  e.target.value
+                                ),
+                            })
                           }
                         />
                       </div>
@@ -1487,20 +1490,14 @@ export default function Admin() {
                           value={
                             scoreForm.homePoints
                           }
-                          onChange={(
-                            e
-                          ) =>
-                            setScoreForm(
-                              {
-                                ...scoreForm,
-                                homePoints:
-                                  Number(
-                                    e
-                                      .target
-                                      .value
-                                  ),
-                              }
-                            )
+                          onChange={(e) =>
+                            setScoreForm({
+                              ...scoreForm,
+                              homePoints:
+                                Number(
+                                  e.target.value
+                                ),
+                            })
                           }
                         />
                       </div>
@@ -1516,20 +1513,14 @@ export default function Admin() {
                           value={
                             scoreForm.awayGoals
                           }
-                          onChange={(
-                            e
-                          ) =>
-                            setScoreForm(
-                              {
-                                ...scoreForm,
-                                awayGoals:
-                                  Number(
-                                    e
-                                      .target
-                                      .value
-                                  ),
-                              }
-                            )
+                          onChange={(e) =>
+                            setScoreForm({
+                              ...scoreForm,
+                              awayGoals:
+                                Number(
+                                  e.target.value
+                                ),
+                            })
                           }
                         />
                       </div>
@@ -1545,20 +1536,14 @@ export default function Admin() {
                           value={
                             scoreForm.awayPoints
                           }
-                          onChange={(
-                            e
-                          ) =>
-                            setScoreForm(
-                              {
-                                ...scoreForm,
-                                awayPoints:
-                                  Number(
-                                    e
-                                      .target
-                                      .value
-                                  ),
-                              }
-                            )
+                          onChange={(e) =>
+                            setScoreForm({
+                              ...scoreForm,
+                              awayPoints:
+                                Number(
+                                  e.target.value
+                                ),
+                            })
                           }
                         />
                       </div>
@@ -1578,17 +1563,19 @@ export default function Admin() {
                         onChange={(e) =>
                           setScoreForm({
                             ...scoreForm,
-                            minute: Number(
-                              e.target
-                                .value
-                            ),
+                            minute:
+                              Number(
+                                e.target.value
+                              ),
                           })
                         }
                       />
                     </div>
 
                     <div className="field">
-                      <label>Status</label>
+                      <label>
+                        Status
+                      </label>
 
                       <select
                         value={
@@ -1598,20 +1585,15 @@ export default function Admin() {
                           setScoreForm({
                             ...scoreForm,
                             status:
-                              e.target
-                                .value,
+                              e.target.value,
                           })
                         }
                       >
                         {STATUSES.map(
                           (status) => (
                             <option
-                              key={
-                                status
-                              }
-                              value={
-                                status
-                              }
+                              key={status}
+                              value={status}
                             >
                               {status}
                             </option>
