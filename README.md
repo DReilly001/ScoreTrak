@@ -1,4 +1,4 @@
-# GAA ScoreHub v1
+# ScoreTrak
 
 Clean restart of the frontend using Next.js + GitHub + Vercel, while reusing the existing Supabase backend.
 
