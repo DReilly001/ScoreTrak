@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="shell">
           <header className="siteHeader">
-            <Link href="/" className="brand">GAA ScoreHub</Link>
+            <Link href="/" className="brand">ScoreTrak</Link>
             <nav>
               <Link href="/">Scores</Link>
               <Link href="/report">Reporter</Link>
