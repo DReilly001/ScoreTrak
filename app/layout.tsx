@@ -3,7 +3,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'GAA ScoreHub',
+  title: 'ScoreTrak',
   description: 'Realtime GAA fixtures, live scores and results',
 }
 
